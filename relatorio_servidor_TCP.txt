@@ -1,0 +1,5 @@
+Relatório do Servidor (TCP)
+Tamanho dos dados recebidos: 1000000 bytes
+Tempo de transmissão: 0.106559 segundos
+Velocidade média: 9.38 MB/s
+Checksum válido: True
