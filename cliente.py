@@ -5,10 +5,11 @@ import time
 HOST = '127.0.0.1'
 TCP_PORT = 5000
 UDP_PORT = 5001
-BUFFER_SIZE = 512
+BUFFER_SIZE = 4096
 
 # Gera dados fictícios para envio
 DATA = b"A" * (10**6)  # 1 MB de dados
+PACKET_COUNT = (len(DATA) + BUFFER_SIZE - 1) // BUFFER_SIZE  # Número total de pacotes
 
 def save_report(protocol, data_size, duration):
     """Gera um relatório após a transmissão."""
@@ -38,8 +39,10 @@ def udp_client():
         print(f"Enviando dados para o servidor UDP em {HOST}:{UDP_PORT}")
         
         start_time = time.perf_counter()
-        for i in range(0, len(DATA), BUFFER_SIZE):
-            udp_socket.sendto(DATA[i:i+BUFFER_SIZE], (HOST, UDP_PORT))
+        for i in range(PACKET_COUNT):
+            packet = i.to_bytes(4, byteorder='big') + DATA[i * BUFFER_SIZE:(i + 1) * BUFFER_SIZE]
+            udp_socket.sendto(packet, (HOST, UDP_PORT))
+            time.sleep(0.001)
         udp_socket.sendto(b"END", (HOST, UDP_PORT))  # Sinaliza o fim da transmissão
         end_time = time.perf_counter()
         

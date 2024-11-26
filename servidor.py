@@ -5,7 +5,7 @@ import time
 HOST = '0.0.0.0'
 TCP_PORT = 5000
 UDP_PORT = 5001
-BUFFER_SIZE = 1024
+BUFFER_SIZE = 4096
 
 def save_report(protocol, data_size, duration, checksum_valid):
     """Gera um relatório após a recepção dos dados."""
@@ -44,10 +44,11 @@ def tcp_server():
 def udp_server():
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
         udp_socket.bind((HOST, UDP_PORT))
-        udp_socket.settimeout(5)
+        udp_socket.settimeout(10)
         print(f"Servidor UDP aguardando dados na porta {UDP_PORT}...")
         
         data_received = b""
+        received_packets = set()
         start_time = None
 
         try:
@@ -58,17 +59,23 @@ def udp_server():
                     break
                 if not start_time:
                     start_time = time.perf_counter()
-                data_received += data
+                packet_id = int.from_bytes(data[:4], byteorder='big')
+                received_packets.add(packet_id)
+                data_received += data[4:]
         except socket.timeout:
             print("Tempo limite atingido. Nenhum pacote recebido ou comunicação incompleta.")
             return
 
         end_time = time.perf_counter()
         duration = end_time - start_time
+
+        total_packets = max(received_packets) + 1 if received_packets else 0
+        lost_packets = total_packets - len(received_packets)
         
         print(f"Dados recebidos: {len(data_received)} bytes")
+        print(f"Pacotes esperados: {total_packets}, recebidos: {len(received_packets)}, perdidos: {lost_packets}")
         print(f"Tempo de transmissão (UDP): {duration:.6f} segundos")
-        save_report("UDP", len(data_received), duration, checksum_valid=True)  # Checksum é opcional
+        save_report("UDP", len(data_received), duration, lost_packets)  # Checksum é opcional
 
 if __name__ == "__main__":
     print("Escolha o protocolo para o servidor:")

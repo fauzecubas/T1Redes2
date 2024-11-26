@@ -1,4 +1,4 @@
 Relatório do Cliente (TCP)
-Tamanho dos dados enviados: 1000000 bytes
-Tempo de transmissão: 0.000134 segundos
-Velocidade média: 7443.52 MB/s
+Tamanho dos dados enviados: 10000000 bytes
+Tempo de transmissão: 1.030163 segundos
+Velocidade média: 9.71 MB/s

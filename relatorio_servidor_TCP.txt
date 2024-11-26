@@ -1,5 +1,5 @@
 Relatório do Servidor (TCP)
-Tamanho dos dados recebidos: 1000000 bytes
-Tempo de transmissão: 0.106559 segundos
-Velocidade média: 9.38 MB/s
+Tamanho dos dados recebidos: 10000000 bytes
+Tempo de transmissão: 9.562960 segundos
+Velocidade média: 1.05 MB/s
 Checksum válido: True
