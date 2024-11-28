@@ -57,13 +57,13 @@ def tcp_server():
         save_report("TCP", len(data_received), duration)
 
 def udp_server():
-    """Servidor para recepção de dados via UDP com envio de ACKs."""
+    """Servidor para recepção de dados via UDP com envio de ACKs e reordenação de pacotes."""
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
         udp_socket.bind((HOST, UDP_PORT))
-        udp_socket.settimeout(20)
+        udp_socket.settimeout(30)  # Timeout ajustado para redes lentas
         print(f"Servidor UDP aguardando dados na porta {UDP_PORT}...")
 
-        data_received = b""
+        buffer = {}  # Buffer para armazenar pacotes fora de ordem
         received_packets = set()
         start_time = None
 
@@ -75,17 +75,29 @@ def udp_server():
         try:
             while True:
                 data, addr = udp_socket.recvfrom(BUFFER_SIZE + 4)
+
+                # Identificar pacote de término
                 if data == b"END":
                     print("Pacote de término recebido. Finalizando...")
                     break
+
+                # Registrar o tempo inicial na chegada do primeiro pacote
                 if not start_time:
                     start_time = time.perf_counter()
+
+                # Extrair o ID do pacote e os dados
                 packet_id = int.from_bytes(data[:4], byteorder='big')
+                packet_data = data[4:]
+
+                # Armazenar o pacote se ainda não recebido
                 if packet_id not in received_packets:
                     received_packets.add(packet_id)
-                    data_received += data[4:]
+                    buffer[packet_id] = packet_data
+
+                # Enviar ACK para o cliente
                 ack = packet_id.to_bytes(4, byteorder='big')
                 udp_socket.sendto(ack, addr)
+
         except socket.timeout:
             print("Tempo limite atingido. Nenhum pacote recebido ou comunicação incompleta.")
             return
@@ -93,6 +105,8 @@ def udp_server():
         end_time = time.perf_counter()
         duration = end_time - start_time
 
+        # Reorganizar pacotes e criar o arquivo completo
+        data_received = b"".join(buffer[i] for i in sorted(buffer))
         total_packets = max(received_packets) + 1 if received_packets else 0
         lost_packets = total_packets - len(received_packets)
 
@@ -100,8 +114,10 @@ def udp_server():
         print(f"Pacotes esperados: {total_packets}, recebidos: {len(received_packets)}, perdidos: {lost_packets}")
         print(f"Tempo de transmissão (UDP): {duration:.6f} segundos")
 
+        # Salvar o arquivo recebido
         save_received_file(data_received, file_name)
         save_report("UDP", len(data_received), duration, lost_packets)
+
 
 
 if __name__ == "__main__":
