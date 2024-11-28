@@ -1,5 +1,5 @@
 Relatório do Servidor (UDP)
-Tamanho dos dados recebidos: 999024 bytes
-Tempo de transmissão: 0.283303 segundos
-Velocidade média: 3.53 MB/s
-Checksum válido: 0
+Tamanho dos dados recebidos: 15754648 bytes
+Tempo de transmissão: 6.304206 segundos
+Velocidade média: 2.50 MB/s
+Pacotes perdidos: 1596

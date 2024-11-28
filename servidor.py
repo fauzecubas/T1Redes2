@@ -1,5 +1,6 @@
 import socket
 import time
+import os
 
 # Configurações do servidor
 HOST = '0.0.0.0'
@@ -7,17 +8,26 @@ TCP_PORT = 5000
 UDP_PORT = 5001
 BUFFER_SIZE = 4096
 
-def save_report(protocol, data_size, duration, checksum_valid):
+def save_report(protocol, data_size, duration, lost_packets=None):
     """Gera um relatório após a recepção dos dados."""
     with open(f"relatorio_servidor_{protocol}.txt", "w") as file:
         file.write(f"Relatório do Servidor ({protocol})\n")
         file.write(f"Tamanho dos dados recebidos: {data_size} bytes\n")
         file.write(f"Tempo de transmissão: {duration:.6f} segundos\n")
         file.write(f"Velocidade média: {data_size / duration / (10**6):.2f} MB/s\n")
-        file.write(f"Checksum válido: {checksum_valid}\n")
+        if lost_packets is not None:
+            file.write(f"Pacotes perdidos: {lost_packets}\n")
     print(f"Relatório salvo em 'relatorio_servidor_{protocol}.txt'.")
 
+def save_received_file(data, protocol):
+    """Salva os dados recebidos em um arquivo."""
+    file_path = f"arquivo_recebido_{protocol}.bin"
+    with open(file_path, "wb") as file:
+        file.write(data)
+    print(f"Arquivo salvo como '{file_path}'.")
+
 def tcp_server():
+    """Servidor para recepção de dados via TCP."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as tcp_socket:
         tcp_socket.bind((HOST, TCP_PORT))
         tcp_socket.listen(1)
@@ -39,9 +49,12 @@ def tcp_server():
         duration = end_time - start_time
         print(f"Dados recebidos: {len(data_received)} bytes")
         print(f"Tempo de transmissão (TCP): {duration:.6f} segundos")
-        save_report("TCP", len(data_received), duration, checksum_valid=True)  # Checksum é opcional
+        
+        save_received_file(data_received, "TCP")
+        save_report("TCP", len(data_received), duration)
 
 def udp_server():
+    """Servidor para recepção de dados via UDP."""
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
         udp_socket.bind((HOST, UDP_PORT))
         udp_socket.settimeout(10)
@@ -75,7 +88,9 @@ def udp_server():
         print(f"Dados recebidos: {len(data_received)} bytes")
         print(f"Pacotes esperados: {total_packets}, recebidos: {len(received_packets)}, perdidos: {lost_packets}")
         print(f"Tempo de transmissão (UDP): {duration:.6f} segundos")
-        save_report("UDP", len(data_received), duration, lost_packets)  # Checksum é opcional
+        
+        save_received_file(data_received, "UDP")
+        save_report("UDP", len(data_received), duration, lost_packets)
 
 if __name__ == "__main__":
     print("Escolha o protocolo para o servidor:")
