@@ -1,4 +1,4 @@
-Relat√≥rio do Servidor (TCP)
-Tamanho dos dados recebidos: 22307264 bytes
-Tempo de transmiss√£o: 9.629105 segundos
-Velocidade m√©dia: 2.32 MB/s
+RelatÛrio do Servidor (TCP)
+Tamanho dos dados recebidos: 81290599 bytes
+Tempo de transmiss„o: 259.901215 segundos
+Velocidade mÈdia: 0.31 MB/s

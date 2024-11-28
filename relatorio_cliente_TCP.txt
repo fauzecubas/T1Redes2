@@ -1,4 +1,4 @@
-Relat√≥rio do Cliente (TCP)
-Tamanho dos dados enviados: 22307264 bytes
-Tempo de transmiss√£o: 5.530527 segundos
-Velocidade m√©dia: 4.03 MB/s
+RelatÛrio do Cliente (TCP)
+Tamanho dos dados enviados: 81290599 bytes
+Tempo de transmiss„o: 0.045158 segundos
+Velocidade mÈdia: 1800.13 MB/s

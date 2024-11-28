@@ -1,5 +1,5 @@
-Relat√≥rio do Servidor (UDP)
-Tamanho dos dados recebidos: 22307264 bytes
-Tempo de transmiss√£o: 12.316822 segundos
-Velocidade m√©dia: 1.81 MB/s
+RelatÛrio do Servidor (UDP)
+Tamanho dos dados recebidos: 15639861 bytes
+Tempo de transmiss„o: 8.769603 segundos
+Velocidade mÈdia: 1.78 MB/s
 Pacotes perdidos: 0

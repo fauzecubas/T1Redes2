@@ -1,4 +1,4 @@
-Relat√≥rio do Cliente (UDP)
-Tamanho dos dados enviados: 22307264 bytes
-Tempo de transmiss√£o: 12.329659 segundos
-Velocidade m√©dia: 1.81 MB/s
+RelatÛrio do Cliente (UDP)
+Tamanho dos dados enviados: 15639861 bytes
+Tempo de transmiss„o: 8.789431 segundos
+Velocidade mÈdia: 1.78 MB/s

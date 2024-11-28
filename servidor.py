@@ -19,12 +19,11 @@ def save_report(protocol, data_size, duration, lost_packets=None):
             file.write(f"Pacotes perdidos: {lost_packets}\n")
     print(f"Relatório salvo em 'relatorio_servidor_{protocol}.txt'.")
 
-def save_received_file(data, protocol):
-    """Salva os dados recebidos em um arquivo."""
-    file_path = f"arquivo_recebido_{protocol}.bin"
-    with open(file_path, "wb") as file:
+def save_received_file(data, file_name):
+    """Salva os dados recebidos no formato original."""
+    with open(file_name, "wb") as file:
         file.write(data)
-    print(f"Arquivo salvo como '{file_path}'.")
+    print(f"Arquivo salvo como '{file_name}'.")
 
 def tcp_server():
     """Servidor para recepção de dados via TCP."""
@@ -32,25 +31,29 @@ def tcp_server():
         tcp_socket.bind((HOST, TCP_PORT))
         tcp_socket.listen(1)
         print(f"Servidor TCP aguardando conexões na porta {TCP_PORT}...")
-        
+
         conn, addr = tcp_socket.accept()
         print(f"Conexão estabelecida com {addr}")
         start_time = time.perf_counter()
-        
-        data_received = b""
+
         with conn:
+            # Receber o nome do arquivo (256 bytes fixos)
+            file_name = conn.recv(256).strip().decode('utf-8')
+            print(f"Recebendo arquivo: {file_name}")
+
+            data_received = b""
             while True:
                 data = conn.recv(BUFFER_SIZE)
                 if not data:
                     break
                 data_received += data
         end_time = time.perf_counter()
-        
+
         duration = end_time - start_time
         print(f"Dados recebidos: {len(data_received)} bytes")
         print(f"Tempo de transmissão (TCP): {duration:.6f} segundos")
-        
-        save_received_file(data_received, "TCP")
+
+        save_received_file(data_received, file_name)
         save_report("TCP", len(data_received), duration)
 
 def udp_server():
@@ -59,10 +62,15 @@ def udp_server():
         udp_socket.bind((HOST, UDP_PORT))
         udp_socket.settimeout(20)
         print(f"Servidor UDP aguardando dados na porta {UDP_PORT}...")
-        
+
         data_received = b""
         received_packets = set()
         start_time = None
+
+        # Receber o nome do arquivo (primeiro pacote)
+        file_name, addr = udp_socket.recvfrom(BUFFER_SIZE)
+        file_name = file_name.decode('utf-8').strip()
+        print(f"Recebendo arquivo: {file_name}")
 
         try:
             while True:
@@ -87,12 +95,12 @@ def udp_server():
 
         total_packets = max(received_packets) + 1 if received_packets else 0
         lost_packets = total_packets - len(received_packets)
-        
+
         print(f"Dados recebidos: {len(data_received)} bytes")
         print(f"Pacotes esperados: {total_packets}, recebidos: {len(received_packets)}, perdidos: {lost_packets}")
         print(f"Tempo de transmissão (UDP): {duration:.6f} segundos")
-        
-        save_received_file(data_received, "UDP")
+
+        save_received_file(data_received, file_name)
         save_report("UDP", len(data_received), duration, lost_packets)
 
 
