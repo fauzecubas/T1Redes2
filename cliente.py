@@ -42,9 +42,8 @@ def tcp_client(file_path):
         save_report("TCP", file_size, duration)
 
 def udp_client(file_path):
-    """Envia um arquivo usando UDP com retransmissão."""
+    """Envia um arquivo usando UDP com retransmissão e timeout adaptativo."""
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
-        udp_socket.settimeout(0.01)
         print(f"Enviando arquivo para o servidor UDP em {HOST}:{UDP_PORT}")
 
         file_size = os.path.getsize(file_path)
@@ -54,6 +53,12 @@ def udp_client(file_path):
 
         # Enviar o nome do arquivo como primeiro pacote
         udp_socket.sendto(file_name, (HOST, UDP_PORT))
+
+        # Inicializar estimadores
+        estimated_rtt = 0.1  # RTT estimado inicial em segundos
+        dev_rtt = 0.05       # Desvio padrão inicial
+        alpha = 0.125        # Fator de suavização para EstimatedRTT
+        beta = 0.25          # Fator de suavização para DevRTT
 
         with open(file_path, 'rb') as file:
             start_time = time.perf_counter()
@@ -67,15 +72,26 @@ def udp_client(file_path):
                 for i, packet in enumerate(packets):
                     if i not in acked_packets:
                         udp_socket.sendto(packet, (HOST, UDP_PORT))
-                try:
-                    while True:
-                        ack_data, _ = udp_socket.recvfrom(8)
-                        ack_id = int.from_bytes(ack_data[:4], byteorder='big')
-                        acked_packets.add(ack_id)
-                        if len(acked_packets) == total_packets:
-                            break
-                except socket.timeout:
-                    print("Timeout. Retransmitindo pacotes não confirmados...")
+                        send_time = time.perf_counter()
+
+                        try:
+                            ack_data, _ = udp_socket.recvfrom(8)
+                            receive_time = time.perf_counter()
+                            sample_rtt = receive_time - send_time
+
+                            # Atualizar estimadores
+                            estimated_rtt = (1 - alpha) * estimated_rtt + alpha * sample_rtt
+                            dev_rtt = (1 - beta) * dev_rtt + beta * abs(sample_rtt - estimated_rtt)
+                            timeout_interval = estimated_rtt + 4 * dev_rtt
+                            udp_socket.settimeout(timeout_interval)
+
+                            ack_id = int.from_bytes(ack_data[:4], byteorder='big')
+                            acked_packets.add(ack_id)
+                            if len(acked_packets) == total_packets:
+                                break
+
+                        except socket.timeout:
+                            print(f"Timeout de {udp_socket.gettimeout():.10f} s. Retransmitindo pacotes não confirmados...")
 
             udp_socket.sendto(b"END", (HOST, UDP_PORT))
             end_time = time.perf_counter()
@@ -85,6 +101,7 @@ def udp_client(file_path):
         print(f"Tamanho do arquivo: {file_size} bytes")
         print(f"Tempo de transmissão (UDP): {duration:.6f} segundos")
         save_report("UDP", file_size, duration)
+
 
 if __name__ == "__main__":
     print("Escolha o protocolo para o cliente:")
