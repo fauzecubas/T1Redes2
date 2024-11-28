@@ -54,10 +54,10 @@ def tcp_server():
         save_report("TCP", len(data_received), duration)
 
 def udp_server():
-    """Servidor para recepção de dados via UDP."""
+    """Servidor para recepção de dados via UDP com envio de ACKs."""
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
         udp_socket.bind((HOST, UDP_PORT))
-        udp_socket.settimeout(10)
+        udp_socket.settimeout(20)
         print(f"Servidor UDP aguardando dados na porta {UDP_PORT}...")
         
         data_received = b""
@@ -66,15 +66,18 @@ def udp_server():
 
         try:
             while True:
-                data, addr = udp_socket.recvfrom(BUFFER_SIZE)
+                data, addr = udp_socket.recvfrom(BUFFER_SIZE + 4)
                 if data == b"END":
                     print("Pacote de término recebido. Finalizando...")
                     break
                 if not start_time:
                     start_time = time.perf_counter()
                 packet_id = int.from_bytes(data[:4], byteorder='big')
-                received_packets.add(packet_id)
-                data_received += data[4:]
+                if packet_id not in received_packets:
+                    received_packets.add(packet_id)
+                    data_received += data[4:]
+                ack = packet_id.to_bytes(4, byteorder='big')
+                udp_socket.sendto(ack, addr)
         except socket.timeout:
             print("Tempo limite atingido. Nenhum pacote recebido ou comunicação incompleta.")
             return
@@ -91,6 +94,7 @@ def udp_server():
         
         save_received_file(data_received, "UDP")
         save_report("UDP", len(data_received), duration, lost_packets)
+
 
 if __name__ == "__main__":
     print("Escolha o protocolo para o servidor:")

@@ -36,21 +36,37 @@ def tcp_client(file_path):
         save_report("TCP", file_size, duration)
 
 def udp_client(file_path):
-    """Envia um arquivo usando UDP."""
+    """Envia um arquivo usando UDP com retransmissão."""
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
+        udp_socket.settimeout(0.01)  # Tempo limite para receber ACKs
         print(f"Enviando arquivo para o servidor UDP em {HOST}:{UDP_PORT}")
-        
+
         file_size = os.path.getsize(file_path)
         total_packets = (file_size + BUFFER_SIZE - 1) // BUFFER_SIZE
-        
+        acked_packets = set()
+
         with open(file_path, 'rb') as file:
             start_time = time.perf_counter()
+            packets = []
             for i in range(total_packets):
                 chunk = file.read(BUFFER_SIZE)
                 packet = i.to_bytes(4, byteorder='big') + chunk
-                udp_socket.sendto(packet, (HOST, UDP_PORT))
-                time.sleep(0.001)
-            
+                packets.append(packet)
+
+            while len(acked_packets) < total_packets:
+                for i, packet in enumerate(packets):
+                    if i not in acked_packets:
+                        udp_socket.sendto(packet, (HOST, UDP_PORT))
+                try:
+                    while True:
+                        ack_data, _ = udp_socket.recvfrom(8)
+                        ack_id = int.from_bytes(ack_data[:4], byteorder='big')
+                        acked_packets.add(ack_id)
+                        if len(acked_packets) == total_packets:
+                            break
+                except socket.timeout:
+                    print("Timeout. Retransmitindo pacotes não confirmados...")
+
             udp_socket.sendto(b"END", (HOST, UDP_PORT))  # Sinaliza o fim da transmissão
             end_time = time.perf_counter()
 

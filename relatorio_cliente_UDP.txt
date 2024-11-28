@@ -1,4 +1,4 @@
 Relatório do Cliente (UDP)
 Tamanho dos dados enviados: 22307264 bytes
-Tempo de transmissão: 6.236450 segundos
-Velocidade média: 3.58 MB/s
+Tempo de transmissão: 12.329659 segundos
+Velocidade média: 1.81 MB/s
