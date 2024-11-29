@@ -7,15 +7,15 @@ import threading
 HOST = '0.0.0.0'
 TCP_PORT = 5000
 UDP_PORT = 5001
-BUFFER_SIZE = 4096
+BUFFER_SIZE = 8192
 
 def save_report(protocol, data_size, duration, lost_packets=None):
     """Gera um relatório após a recepção dos dados."""
     with open(f"relatorio_servidor_{protocol}.txt", "w") as file:
-        file.write(f"Relatório do Servidor ({protocol})\n")
+        file.write(f"Relatorio do Servidor ({protocol})\n")
         file.write(f"Tamanho dos dados recebidos: {data_size} bytes\n")
-        file.write(f"Tempo de transmissão: {duration:.6f} segundos\n")
-        file.write(f"Velocidade média: {data_size / duration / (10**6):.2f} MB/s\n")
+        file.write(f"Tempo de transmissao: {duration:.6f} segundos\n")
+        file.write(f"Velocidade media: {data_size / duration / (10**6):.2f} MB/s\n")
         if lost_packets is not None:
             file.write(f"Pacotes perdidos: {lost_packets}\n")
     print(f"Relatório salvo em 'relatorio_servidor_{protocol}.txt'.")
@@ -35,28 +35,31 @@ def handle_client(conn, addr):
         # Receber o nome do arquivo (256 bytes fixos)
         file_name = conn.recv(256).strip().decode('utf-8')
         print(f"Recebendo arquivo: {file_name}")
-        data_received = b""
-        while True:
-            data = conn.recv(BUFFER_SIZE)
-            if not data:
-                break
-            data_received += data
+        
+        # Salvar os dados diretamente no arquivo
+        with open(file_name, "wb") as file:
+            total_received = 0
+            while True:
+                data = conn.recv(BUFFER_SIZE)
+                if not data:
+                    break
+                file.write(data)
+                total_received += len(data)
 
     end_time = time.perf_counter()
 
     duration = end_time - start_time
-    print(f"\nDados recebidos: {len(data_received)} bytes")
-    print(f"Tempo de transmissão (TCP): {duration:.6f} segundos")
+    print(f"\nDados recebidos: {total_received} bytes")
+    print(f"Tempo de transmisso (TCP): {duration:.6f} segundos")
 
-    save_received_file(data_received, file_name)
-    save_report("TCP", len(data_received), duration)
+    save_report("TCP", total_received, duration)
 
 def tcp_server():
     """Servidor para recepção de dados via TCP, com barra de progresso e suporte a multiplos clientes."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as tcp_socket:
         tcp_socket.bind((HOST, TCP_PORT))
         tcp_socket.listen(1)
-        print(f"Servidor TCP aguardando conexões na porta {TCP_PORT}...")
+        # print(f"Servidor TCP aguardando conexões na porta {TCP_PORT}...")
 
         while True:
             try:
@@ -72,7 +75,7 @@ def udp_server():
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
         udp_socket.bind((HOST, UDP_PORT))
         udp_socket.settimeout(30)  # Timeout ajustado para redes lentas
-        print(f"Servidor UDP aguardando dados na porta {UDP_PORT}...")
+        # print(f"Servidor UDP aguardando dados na porta {UDP_PORT}...")
 
         buffer = {}  # Buffer para armazenar pacotes fora de ordem
         received_packets = set()
@@ -81,7 +84,7 @@ def udp_server():
         # Receber o nome do arquivo (primeiro pacote)
         file_name, addr = udp_socket.recvfrom(BUFFER_SIZE)
         file_name = file_name.decode('utf-8').strip()
-        print(f"Recebendo arquivo: {file_name}")
+        # print(f"Recebendo arquivo: {file_name}")
 
         try:
             while True:
@@ -89,7 +92,7 @@ def udp_server():
 
                 # Identificar pacote de término
                 if data == b"END":
-                    print("Pacote de término recebido. Finalizando...")
+                    # print("Pacote de término recebido. Finalizando...")
                     break
 
                 # Registrar o tempo inicial na chegada do primeiro pacote
@@ -110,7 +113,7 @@ def udp_server():
                 udp_socket.sendto(ack, addr)
 
         except socket.timeout:
-            print("Tempo limite atingido. Nenhum pacote recebido ou comunicação incompleta.")
+            # print("Tempo limite atingido. Nenhum pacote recebido ou comunicação incompleta.")
             return
 
         end_time = time.perf_counter()
