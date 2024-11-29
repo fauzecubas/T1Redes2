@@ -1,6 +1,7 @@
 import socket
 import time
 import os
+import threading
 import sys
 
 # Configurações do servidor
@@ -37,44 +38,51 @@ def update_progress_udp(received_packets):
     progress = len(received_packets) / (max(received_packets) + 1) * 100 if received_packets else 0
     sys.stdout.write(f"\rProgresso: [{int(progress):3}%] {'#' * (int(progress) // 2)}")
     sys.stdout.flush()
+    
+def handle_client(conn, addr):
+    """Processa a recepção de dados de um cliente TCP."""
+    print(f"Conexão estabelecida com {addr}")
+    start_time = time.perf_counter()
+
+    with conn:
+        # Receber o nome do arquivo (256 bytes fixos)
+        file_name = conn.recv(256).strip().decode('utf-8')
+        print(f"Recebendo arquivo: {file_name}")
+
+        file_size = 0  # Inicializando o tamanho do arquivo
+        data_received = b""
+        while True:
+            data = conn.recv(BUFFER_SIZE)
+            if not data:
+                break
+            data_received += data
+            file_size += len(data)  # Atualiza o tamanho dos dados recebidos
+
+            update_progress_tcp(file_size, file_name)
+    end_time = time.perf_counter()
+
+    duration = end_time - start_time
+    print(f"\nDados recebidos: {len(data_received)} bytes")
+    print(f"Tempo de transmissão (TCP): {duration:.6f} segundos")
+
+    save_received_file(data_received, file_name)
+    save_report("TCP", len(data_received), duration)
 
 def tcp_server():
-    """Servidor para recepção de dados via TCP, com barra de progresso."""
+    """Servidor para recepção de dados via TCP, com barra de progresso e suporte a multiplos clientes."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as tcp_socket:
         tcp_socket.bind((HOST, TCP_PORT))
         tcp_socket.listen(1)
         print(f"Servidor TCP aguardando conexões na porta {TCP_PORT}...")
 
-        conn, addr = tcp_socket.accept()
-        print(f"Conexão estabelecida com {addr}")
-        start_time = time.perf_counter()
-
-        with conn:
-            # Receber o nome do arquivo (256 bytes fixos)
-            file_name = conn.recv(256).strip().decode('utf-8')
-            print(f"Recebendo arquivo: {file_name}")
-
-            file_size = 0  # Inicializando o tamanho do arquivo
-            data_received = b""
-
-            while True:
-                data = conn.recv(BUFFER_SIZE)
-                if not data:
-                    break
-                data_received += data
-                file_size += len(data)  # Atualiza o tamanho dos dados recebidos
-
-                update_progress_tcp(file_size, file_name)
-
-        end_time = time.perf_counter()
-
-        duration = end_time - start_time
-        print(f"\nDados recebidos: {len(data_received)} bytes")
-        print(f"Tempo de transmissão (TCP): {duration:.6f} segundos")
-
-        save_received_file(data_received, file_name)
-        save_report("TCP", len(data_received), duration)
-
+        while True:
+            try:
+                conn, addr = tcp_socket.accept()
+                # Inicia uma nova thread para processar o cliente
+                threading.Thread(target=handle_client, args=(conn, addr)).start()
+            except KeyboardInterrupt:
+                print("\nInterrupcao recebida. Encerrando o servidor...")
+                break
 
 def udp_server():
     """Servidor para recepção de dados via UDP com envio de ACKs e reordenação de pacotes, com barra de progresso."""
@@ -98,7 +106,7 @@ def udp_server():
 
                 # Identificar pacote de término
                 if data == b"END":
-                    print("Pacote de término recebido. Finalizando...")
+                    print("\nPacote de término recebido. Finalizando...")
                     break
 
                 # Registrar o tempo inicial na chegada do primeiro pacote
