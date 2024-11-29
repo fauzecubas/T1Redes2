@@ -1,6 +1,7 @@
 import socket
 import time
 import os
+import sys
 
 # Configurações do cliente
 HOST = '127.0.0.1'
@@ -17,8 +18,20 @@ def save_report(protocol, data_size, duration):
         file.write(f"Velocidade média: {data_size / duration / (10**6):.2f} MB/s\n")
     print(f"Relatório salvo em 'relatorio_cliente_{protocol}.txt'.")
 
+def update_progress_tcp(acked_packets, total_packets):
+    # Atualiza o progresso TCP
+    progress = len(acked_packets) / total_packets * 100
+    sys.stdout.write(f"\rProgresso: [{int(progress):3}%] {'#' * (int(progress) // 2)}")
+    sys.stdout.flush()
+
+def update_progress_udp(data_sent, file_size):
+    # Atualiza o progresso UDP
+    progress = data_sent / file_size * 100
+    sys.stdout.write(f"\rProgresso: [{int(progress):3}%] {'#' * (int(progress) // 2)}")
+    sys.stdout.flush()
+
 def tcp_client(file_path):
-    """Envia um arquivo usando TCP."""
+    """Envia um arquivo usando TCP com barra de progresso."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as tcp_socket:
         tcp_socket.connect((HOST, TCP_PORT))
         print(f"Conectado ao servidor TCP em {HOST}:{TCP_PORT}")
@@ -32,17 +45,28 @@ def tcp_client(file_path):
         # Enviar os dados do arquivo
         with open(file_path, 'rb') as file:
             start_time = time.perf_counter()
-            tcp_socket.sendall(file.read())
+
+            data_sent = 0
+            chunk = file.read(BUFFER_SIZE)
+            while chunk:
+                tcp_socket.sendall(chunk)
+                data_sent += len(chunk)
+
+                update_progress_udp(data_sent,file_size)
+
+                # Ler o próximo pedaço do arquivo
+                chunk = file.read(BUFFER_SIZE)
+
             end_time = time.perf_counter()
 
         duration = end_time - start_time
-        print(f"Arquivo enviado: {file_path}")
+        print(f"\nArquivo enviado: {file_path}")
         print(f"Tamanho do arquivo: {file_size} bytes")
         print(f"Tempo de transmissão (TCP): {duration:.6f} segundos")
         save_report("TCP", file_size, duration)
 
 def udp_client(file_path):
-    """Envia um arquivo usando UDP com retransmissão e timeout adaptativo."""
+    """Envia um arquivo usando UDP com retransmissão, timeout adaptativo e barra de progresso."""
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
         print(f"Enviando arquivo para o servidor UDP em {HOST}:{UDP_PORT}")
 
@@ -87,17 +111,20 @@ def udp_client(file_path):
 
                             ack_id = int.from_bytes(ack_data[:4], byteorder='big')
                             acked_packets.add(ack_id)
+
+                            update_progress_tcp(acked_packets, total_packets)
+
                             if len(acked_packets) == total_packets:
                                 break
 
                         except socket.timeout:
-                            print(f"Timeout de {udp_socket.gettimeout():.10f} s. Retransmitindo pacotes não confirmados...")
+                            print(f"\nERRO DE TRANSMISSÃO - Timeout de {udp_socket.gettimeout():.10f} s. Retransmitindo pacotes não confirmados...")
 
             udp_socket.sendto(b"END", (HOST, UDP_PORT))
             end_time = time.perf_counter()
 
         duration = end_time - start_time
-        print(f"Arquivo enviado: {file_path}")
+        print(f"\nArquivo enviado: {file_path}")
         print(f"Tamanho do arquivo: {file_size} bytes")
         print(f"Tempo de transmissão (UDP): {duration:.6f} segundos")
         save_report("UDP", file_size, duration)
