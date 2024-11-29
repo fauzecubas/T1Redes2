@@ -1,6 +1,7 @@
 import socket
 import time
 import os
+import sys
 
 # Configurações do servidor
 HOST = '0.0.0.0'
@@ -25,8 +26,20 @@ def save_received_file(data, file_name):
         file.write(data)
     print(f"Arquivo salvo como '{file_name}'.")
 
+def update_progress_tcp(file_size, file_name):
+    # Atualiza o progresso TCP
+    progress = (file_size / os.path.getsize(file_name)) * 100 if file_size else 0
+    sys.stdout.write(f"\rProgresso: [{int(progress):3}%] {'#' * (int(progress) // 2)}")
+    sys.stdout.flush()
+
+def update_progress_udp(received_packets):
+    # Atualiza o progresso UDP
+    progress = len(received_packets) / (max(received_packets) + 1) * 100 if received_packets else 0
+    sys.stdout.write(f"\rProgresso: [{int(progress):3}%] {'#' * (int(progress) // 2)}")
+    sys.stdout.flush()
+
 def tcp_server():
-    """Servidor para recepção de dados via TCP."""
+    """Servidor para recepção de dados via TCP, com barra de progresso."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as tcp_socket:
         tcp_socket.bind((HOST, TCP_PORT))
         tcp_socket.listen(1)
@@ -41,23 +54,30 @@ def tcp_server():
             file_name = conn.recv(256).strip().decode('utf-8')
             print(f"Recebendo arquivo: {file_name}")
 
+            file_size = 0  # Inicializando o tamanho do arquivo
             data_received = b""
+
             while True:
                 data = conn.recv(BUFFER_SIZE)
                 if not data:
                     break
                 data_received += data
+                file_size += len(data)  # Atualiza o tamanho dos dados recebidos
+
+                update_progress_tcp(file_size, file_name)
+
         end_time = time.perf_counter()
 
         duration = end_time - start_time
-        print(f"Dados recebidos: {len(data_received)} bytes")
+        print(f"\nDados recebidos: {len(data_received)} bytes")
         print(f"Tempo de transmissão (TCP): {duration:.6f} segundos")
 
         save_received_file(data_received, file_name)
         save_report("TCP", len(data_received), duration)
 
+
 def udp_server():
-    """Servidor para recepção de dados via UDP com envio de ACKs e reordenação de pacotes."""
+    """Servidor para recepção de dados via UDP com envio de ACKs e reordenação de pacotes, com barra de progresso."""
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
         udp_socket.bind((HOST, UDP_PORT))
         udp_socket.settimeout(30)  # Timeout ajustado para redes lentas
@@ -94,6 +114,8 @@ def udp_server():
                     received_packets.add(packet_id)
                     buffer[packet_id] = packet_data
 
+                update_progress_udp(received_packets)
+
                 # Enviar ACK para o cliente
                 ack = packet_id.to_bytes(4, byteorder='big')
                 udp_socket.sendto(ack, addr)
@@ -110,15 +132,13 @@ def udp_server():
         total_packets = max(received_packets) + 1 if received_packets else 0
         lost_packets = total_packets - len(received_packets)
 
-        print(f"Dados recebidos: {len(data_received)} bytes")
+        print(f"\nDados recebidos: {len(data_received)} bytes")
         print(f"Pacotes esperados: {total_packets}, recebidos: {len(received_packets)}, perdidos: {lost_packets}")
         print(f"Tempo de transmissão (UDP): {duration:.6f} segundos")
 
         # Salvar o arquivo recebido
         save_received_file(data_received, file_name)
         save_report("UDP", len(data_received), duration, lost_packets)
-
-
 
 if __name__ == "__main__":
     print("Escolha o protocolo para o servidor:")
